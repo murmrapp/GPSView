@@ -5,7 +5,7 @@ const { useState, useEffect, useRef, useMemo, useCallback } = React;
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "light",
   "mapStyle": "auto",
-  "colorBy": "speed",
+  "colorBy": "none",
   "units": "metric"
 }/*EDITMODE-END*/;
 
@@ -31,8 +31,12 @@ function App(){
     []
   );
   const [renderMode, setRenderMode] = useState(
-    urlParams.get('render') === 'line' ? 'line' : 'points'
+    urlParams.get('render') === 'points' ? 'points' : 'line'
   );
+  // Toggles the on-map control cards (Color by / Map / Render) and the
+  // right-side stats + chart panel. Default closed for the minimalist
+  // header-and-map view; the header sliders button toggles it.
+  const [expanded, setExpanded] = useState(false);
   const [points, setPoints] = useState([]);
   const [device, setDevice] = useState(null);
   const [devices, setDevices] = useState(null);  // null = loading, [] = none, [...] = ready
@@ -91,7 +95,7 @@ function App(){
   const [clickedIndex, setClickedIndex] = useState(null);
   const [brushRange, setBrushRange] = useState(null);
   const [activeTab, setActiveTab] = useState('alt'); // alt | speed | battery | sats
-  const [colorBy, setColorBy] = useState('speed');
+  const [colorBy, setColorBy] = useState('none');
 
   // playback
   const [playing, setPlaying] = useState(false);
@@ -242,6 +246,23 @@ function App(){
           </div>
         </div>
         <div className="header-actions">
+          <button
+            className={`btn btn-icon ${expanded ? 'active' : ''}`}
+            title={expanded ? 'Hide controls & stats' : 'Show controls & stats'}
+            aria-pressed={expanded}
+            onClick={() => setExpanded(e => !e)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="4"  y1="6"  x2="13" y2="6"/>
+              <line x1="17" y1="6"  x2="20" y2="6"/>
+              <circle cx="15" cy="6"  r="2"/>
+              <line x1="4"  y1="12" x2="6"  y2="12"/>
+              <line x1="10" y1="12" x2="20" y2="12"/>
+              <circle cx="8"  cy="12" r="2"/>
+              <line x1="4"  y1="18" x2="11" y2="18"/>
+              <line x1="15" y1="18" x2="20" y2="18"/>
+              <circle cx="13" cy="18" r="2"/>
+            </svg>
+          </button>
           <button className="btn btn-icon" title="Toggle theme"
                   onClick={() => setTweak('theme', theme === 'light' ? 'dark' : 'light')}>
             {theme === 'light' ? (
@@ -259,7 +280,7 @@ function App(){
       </header>
 
       {/* ===== MAIN ===== */}
-      <div className="main">
+      <div className={`main ${expanded ? 'expanded' : ''}`}>
         {/* ===== MAP ===== */}
         <div className="map-wrap">
           <window.MapView
@@ -274,44 +295,45 @@ function App(){
             renderMode={renderMode}
           />
 
-          {/* overlays */}
-          <div className="map-overlay map-controls">
-            <div className="control-card">
-              <div className="control-label">Color by</div>
-              <div className="seg">
-                {[
-                  ['none','None'],
-                  ['speed','Speed'],
-                  ['alt','Alt'],
-                  ['battery','Bat'],
-                  ['sats','Sats'],
-                ].map(([k,l]) => (
-                  <button key={k} className={colorBy === k ? 'active' : ''}
-                          onClick={() => setColorBy(k)}>{l}</button>
-                ))}
+          {expanded && (
+            <div className="map-overlay map-controls">
+              <div className="control-card">
+                <div className="control-label">Color by</div>
+                <div className="seg">
+                  {[
+                    ['none','None'],
+                    ['speed','Speed'],
+                    ['alt','Alt'],
+                    ['battery','Bat'],
+                    ['sats','Sats'],
+                  ].map(([k,l]) => (
+                    <button key={k} className={colorBy === k ? 'active' : ''}
+                            onClick={() => setColorBy(k)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="control-card">
+                <div className="control-label">Map</div>
+                <div className="seg">
+                  {[['auto','Auto'],['light','Light'],['dark','Dark'],['sat','Satellite']].map(([k,l]) => (
+                    <button key={k} className={mapStyle === k ? 'active' : ''}
+                            onClick={() => setTweak('mapStyle', k)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="control-card">
+                <div className="control-label">Render</div>
+                <div className="seg">
+                  {[['points','Points'],['line','Line']].map(([k,l]) => (
+                    <button key={k} className={renderMode === k ? 'active' : ''}
+                            onClick={() => setRenderMode(k)}>{l}</button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="control-card">
-              <div className="control-label">Map</div>
-              <div className="seg">
-                {[['auto','Auto'],['light','Light'],['dark','Dark'],['sat','Satellite']].map(([k,l]) => (
-                  <button key={k} className={mapStyle === k ? 'active' : ''}
-                          onClick={() => setTweak('mapStyle', k)}>{l}</button>
-                ))}
-              </div>
-            </div>
-            <div className="control-card">
-              <div className="control-label">Render</div>
-              <div className="seg">
-                {[['points','Points'],['line','Line']].map(([k,l]) => (
-                  <button key={k} className={renderMode === k ? 'active' : ''}
-                          onClick={() => setRenderMode(k)}>{l}</button>
-                ))}
-              </div>
-            </div>
-          </div>
+          )}
 
-          {colorBy !== 'none' && (
+          {expanded && colorBy !== 'none' && (
             <div className="map-overlay legend">
               <div className="legend-title">{
                 ({speed:'Speed (kts)', alt:'Altitude (m)', battery:'Battery (%)', sats:'Satellites'})[colorBy]
@@ -332,140 +354,141 @@ function App(){
           </div>
         </div>
 
-        {/* ===== RIGHT PANEL ===== */}
-        <aside className="right-panel">
-          <div className="stats">
-            <div className="stat">
-              <div className="stat-label">Distance</div>
-              <div className="stat-value mono">
-                {tweaks.units === 'imperial'
-                  ? (summary.distanceKm*0.621371).toFixed(2)
-                  : summary.distanceKm.toFixed(2)}
-                <span className="stat-unit">{tweaks.units === 'imperial' ? 'mi' : 'km'}</span>
+        {expanded && (
+          <aside className="right-panel">
+            <div className="stats">
+              <div className="stat">
+                <div className="stat-label">Distance</div>
+                <div className="stat-value mono">
+                  {tweaks.units === 'imperial'
+                    ? (summary.distanceKm*0.621371).toFixed(2)
+                    : summary.distanceKm.toFixed(2)}
+                  <span className="stat-unit">{tweaks.units === 'imperial' ? 'mi' : 'km'}</span>
+                </div>
               </div>
-            </div>
-            <div className="stat">
-              <div className="stat-label">Duration</div>
-              <div className="stat-value mono">{fmtDur(summary.durationMin)}</div>
-            </div>
-            <div className="stat">
-              <div className="stat-label">Max speed</div>
-              <div className="stat-value mono">
-                {tweaks.units === 'imperial'
-                  ? (summary.maxSpeedKts*1.15078).toFixed(1)
-                  : summary.maxSpeedKts.toFixed(1)}
-                <span className="stat-unit">{tweaks.units === 'imperial' ? 'mph' : 'kts'}</span>
+              <div className="stat">
+                <div className="stat-label">Duration</div>
+                <div className="stat-value mono">{fmtDur(summary.durationMin)}</div>
               </div>
-            </div>
-            <div className="stat">
-              <div className="stat-label">Ascent</div>
-              <div className="stat-value mono">
-                {tweaks.units === 'imperial' ? (summary.ascentM*3.28084).toFixed(0) : summary.ascentM.toFixed(0)}
-                <span className="stat-unit">{tweaks.units === 'imperial' ? 'ft' : 'm'}</span>
+              <div className="stat">
+                <div className="stat-label">Max speed</div>
+                <div className="stat-value mono">
+                  {tweaks.units === 'imperial'
+                    ? (summary.maxSpeedKts*1.15078).toFixed(1)
+                    : summary.maxSpeedKts.toFixed(1)}
+                  <span className="stat-unit">{tweaks.units === 'imperial' ? 'mph' : 'kts'}</span>
+                </div>
               </div>
-            </div>
-          </div>
-
-          <div className="tabs-wrap">
-            <div className="tabs">
-              {tabs.map(t => (
-                <button key={t.id}
-                        className={`tab ${activeTab === t.id ? 'active' : ''}`}
-                        onClick={() => setActiveTab(t.id)}>
-                  <span className="tab-dot" style={{ background: t.color }}></span>
-                  {t.label}
-                </button>
-              ))}
+              <div className="stat">
+                <div className="stat-label">Ascent</div>
+                <div className="stat-value mono">
+                  {tweaks.units === 'imperial' ? (summary.ascentM*3.28084).toFixed(0) : summary.ascentM.toFixed(0)}
+                  <span className="stat-unit">{tweaks.units === 'imperial' ? 'ft' : 'm'}</span>
+                </div>
+              </div>
             </div>
 
-            <div className="chart-area">
-              <div className="chart-header">
-                <div className="chart-title">
-                  {tabCfg.label} over time
-                  {brushRange && (
-                    <span style={{ marginLeft: 10, color: 'var(--accent)' }}>
-                      · brushed {brushRange[1] - brushRange[0] + 1} pts
-                      <span style={{ marginLeft: 8, cursor: 'pointer', textDecoration: 'underline' }}
-                            onClick={() => setBrushRange(null)}>clear</span>
+            <div className="tabs-wrap">
+              <div className="tabs">
+                {tabs.map(t => (
+                  <button key={t.id}
+                          className={`tab ${activeTab === t.id ? 'active' : ''}`}
+                          onClick={() => setActiveTab(t.id)}>
+                    <span className="tab-dot" style={{ background: t.color }}></span>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="chart-area">
+                <div className="chart-header">
+                  <div className="chart-title">
+                    {tabCfg.label} over time
+                    {brushRange && (
+                      <span style={{ marginLeft: 10, color: 'var(--accent)' }}>
+                        · brushed {brushRange[1] - brushRange[0] + 1} pts
+                        <span style={{ marginLeft: 8, cursor: 'pointer', textDecoration: 'underline' }}
+                              onClick={() => setBrushRange(null)}>clear</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="chart-readout">
+                    <span className="big">
+                      {(() => {
+                        const idx = hoveredIndex ?? points.length - 1;
+                        const v = points[idx][tabCfg.field];
+                        return v.toFixed(tabCfg.decimals);
+                      })()}
                     </span>
-                  )}
+                    <span className="unit">{tabCfg.unit}</span>
+                  </div>
                 </div>
-                <div className="chart-readout">
-                  <span className="big">
-                    {(() => {
-                      const idx = hoveredIndex ?? points.length - 1;
-                      const v = points[idx][tabCfg.field];
-                      return v.toFixed(tabCfg.decimals);
-                    })()}
-                  </span>
-                  <span className="unit">{tabCfg.unit}</span>
+
+                <window.MetricChart
+                  points={points}
+                  field={tabCfg.field}
+                  unit={tabCfg.unit}
+                  color={tabCfg.color}
+                  decimals={tabCfg.decimals}
+                  hoveredIndex={hoveredIndex}
+                  onHoverIndex={setHoveredIndex}
+                  brushRange={brushRange}
+                  onBrushRange={setBrushRange}
+                />
+
+                <div style={{
+                  padding: '0 14px 10px',
+                  fontSize: 10, color: 'var(--text-faint)',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  letterSpacing: '0.04em',
+                }}>
+                  hover to scrub · shift+drag to brush a time range · click map points for details
                 </div>
-              </div>
-
-              <window.MetricChart
-                points={points}
-                field={tabCfg.field}
-                unit={tabCfg.unit}
-                color={tabCfg.color}
-                decimals={tabCfg.decimals}
-                hoveredIndex={hoveredIndex}
-                onHoverIndex={setHoveredIndex}
-                brushRange={brushRange}
-                onBrushRange={setBrushRange}
-              />
-
-              <div style={{
-                padding: '0 14px 10px',
-                fontSize: 10, color: 'var(--text-faint)',
-                fontFamily: 'JetBrains Mono, monospace',
-                letterSpacing: '0.04em',
-              }}>
-                hover to scrub · shift+drag to brush a time range · click map points for details
               </div>
             </div>
-          </div>
 
-          {/* PLAYBACK */}
-          <div className="playback">
-            <button className={`play-btn ${playing ? 'playing' : ''}`}
-                    onClick={() => {
-                      if (playIdx >= points.length - 1) setPlayIdx(0);
-                      setPlaying(p => !p);
-                    }}>
-              {playing ? (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="5" width="4" height="14"/>
-                  <rect x="14" y="5" width="4" height="14"/>
-                </svg>
-              ) : (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7 5v14l12-7z"/>
-                </svg>
-              )}
-            </button>
+            {/* PLAYBACK */}
+            <div className="playback">
+              <button className={`play-btn ${playing ? 'playing' : ''}`}
+                      onClick={() => {
+                        if (playIdx >= points.length - 1) setPlayIdx(0);
+                        setPlaying(p => !p);
+                      }}>
+                {playing ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="5" width="4" height="14"/>
+                    <rect x="14" y="5" width="4" height="14"/>
+                  </svg>
+                ) : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 5v14l12-7z"/>
+                  </svg>
+                )}
+              </button>
 
-            <div className="timeline" ref={tlRef}
-                 onMouseDown={(e) => { setScrubbing(true); scrubAt(e); }}>
-              <div className="timeline-track">
-                <div className="timeline-fill" style={{
-                  width: `${(playIdx / (points.length-1)) * 100}%`,
+              <div className="timeline" ref={tlRef}
+                   onMouseDown={(e) => { setScrubbing(true); scrubAt(e); }}>
+                <div className="timeline-track">
+                  <div className="timeline-fill" style={{
+                    width: `${(playIdx / (points.length-1)) * 100}%`,
+                  }}></div>
+                </div>
+                <div className="timeline-thumb" style={{
+                  left: `${(playIdx / (points.length-1)) * 100}%`,
                 }}></div>
               </div>
-              <div className="timeline-thumb" style={{
-                left: `${(playIdx / (points.length-1)) * 100}%`,
-              }}></div>
-            </div>
 
-            <button className="speed-toggle"
-                    onClick={() => setPlaySpeed(s => s === 1 ? 2 : s === 2 ? 4 : s === 4 ? 8 : 1)}>
-              {playSpeed}×
-            </button>
+              <button className="speed-toggle"
+                      onClick={() => setPlaySpeed(s => s === 1 ? 2 : s === 2 ? 4 : s === 4 ? 8 : 1)}>
+                {playSpeed}×
+              </button>
 
-            <div className="timeline-readout">
-              {fmtClock(points[playIdx].t)} <span style={{ color: 'var(--text-faint)' }}>UTC</span>
+              <div className="timeline-readout">
+                {fmtClock(points[playIdx].t)} <span style={{ color: 'var(--text-faint)' }}>UTC</span>
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        )}
       </div>
 
       {/* TWEAKS */}

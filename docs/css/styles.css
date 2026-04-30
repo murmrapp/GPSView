@@ -197,18 +197,29 @@ html, body {
 /* ---------- Main grid ---------- */
 .main {
   display: grid;
-  grid-template-columns: 1fr 460px;
+  grid-template-columns: 1fr;
   min-height: 0;
   overflow: hidden;
 }
 
+/* When the header sliders toggle is on, restore the right-side panel
+   alongside the map. The .right-panel JSX is also conditionally
+   rendered in app.jsx, so without this class the column would be empty. */
+.main.expanded {
+  grid-template-columns: 1fr 460px;
+}
+
 @media (max-width: 1100px) {
-  .main { grid-template-columns: 1fr 400px; }
+  .main.expanded { grid-template-columns: 1fr 400px; }
 }
 
 @media (max-width: 900px) {
-  .main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-  .right-panel { max-height: 50vh; border-left: none; border-top: 1px solid var(--border); }
+  .main.expanded { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .main.expanded .right-panel {
+    max-height: 50vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
 }
 
 /* ---------- Map ---------- */
