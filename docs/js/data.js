@@ -158,11 +158,20 @@
   // S3 / etc.) instead of the live Phoenix API. Same JSON shape either way.
   const isStatic = () => typeof window !== 'undefined' && window.GPSDATA_STATIC === true;
 
+  // window.GPSDATA_VERSION is also injected by mix gpsview.static_export — a
+  // unix timestamp that changes on every re-bake. Appending it as `?v=` makes
+  // GitHub Pages' CDN serve the freshly-pushed JSON immediately instead of
+  // a stale cached copy.
+  const versionParam = () => {
+    const v = (typeof window !== 'undefined' && window.GPSDATA_VERSION) || '';
+    return v ? `?v=${encodeURIComponent(v)}` : '';
+  };
+
   // Mirrors GET /api/devices. In static mode the URL is relative so it
   // works whether the export is served from the host root or a subpath
   // like <user>.github.io/<repo>/.
   async function fetchDevices(){
-    const url = isStatic() ? 'data/devices.json' : '/api/devices';
+    const url = isStatic() ? `data/devices.json${versionParam()}` : '/api/devices';
     const resp = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!resp.ok) throw new Error(`fetchDevices: ${resp.status} ${resp.statusText}`);
     return resp.json();
@@ -175,7 +184,7 @@
   async function fetchTrack(deviceId, decimate = 0){
     // decimate=0 means "all points, full resolution" (server-side LTTB skipped)
     const url = isStatic()
-      ? `data/${encodeURIComponent(deviceId)}.json`
+      ? `data/${encodeURIComponent(deviceId)}.json${versionParam()}`
       : `/api/fixes?device_id=${encodeURIComponent(deviceId)}&decimate=${decimate}`;
     const resp = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!resp.ok){
