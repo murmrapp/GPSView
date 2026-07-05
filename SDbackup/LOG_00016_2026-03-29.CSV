@@ -1,0 +1,2 @@
+datetime,lat,lon,alt_m,speed_kts,satellites,hdop,battery_pct,battery_v,fix,boot
+2026-03-29T03:05:00,,,,,,,92.1,4.133,0,1

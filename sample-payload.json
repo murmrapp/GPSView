@@ -1,0 +1,17 @@
+{
+  "device_id": "7C2A",
+  "datetime": "2026-03-26T21:28:56Z",
+  "lat": -17.481756,
+  "lon": -149.839661,
+  "alt_m": 0.9,
+  "speed_kts": 1.28,
+  "cog": 16,
+  "satellites": 6,
+  "hdop": 0.6,
+  "battery_pct": 46.9,
+  "battery_v": 3.816,
+  "charge_rate": 1,
+  "rtc_bat_low": false,
+  "fix": 1,
+  "boot": 826
+}

@@ -1,0 +1,2 @@
+datetime,lat,lon,alt_m,speed_kts,cog,satellites,hdop,battery_pct,battery_v,charge_rate,rtc_bat_low,fix,boot
+2026-05-26T15:17:02,48.606613,11.653140,474.3,64.60,222.1,14,0.7,55.0,3.848,-8.3,0,1,1025

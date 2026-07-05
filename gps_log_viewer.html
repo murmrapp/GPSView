@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPS Log Viewer</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0
+    }
+
+    .header {
+      padding: 20px 24px 12px;
+      border-bottom: 1px solid #1e1e3a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #e94560
+    }
+
+    .header p {
+      font-size: 13px;
+      color: #888;
+      width: 100%
+    }
+
+    .upload-area {
+      border: 2px dashed #2a2a4a;
+      border-radius: 12px;
+      padding: 60px 40px;
+      text-align: center;
+      margin: 40px 24px;
+      cursor: pointer;
+      transition: all 0.2s
+    }
+
+    .upload-area:hover,
+    .upload-area.dragover {
+      border-color: #e94560;
+      background: rgba(233, 69, 96, 0.05)
+    }
+
+    .upload-area h2 {
+      font-size: 18px;
+      color: #ccc;
+      margin-bottom: 8px
+    }
+
+    .upload-area p {
+      font-size: 13px;
+      color: #666
+    }
+
+    .upload-area input {
+      display: none
+    }
+
+    .upload-btn {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 10px 24px;
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer
+    }
+
+    .upload-btn:hover {
+      background: #c73450
+    }
+
+    #app {
+      display: none
+    }
+
+    .alert-banner {
+      background: #3e1616;
+      border: 1px solid #e94560;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 12px 24px 0;
+      color: #ff6b6b;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .alert-banner .alert-icon {
+      font-size: 18px;
+      flex-shrink: 0
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+      padding: 12px 24px
+    }
+
+    .stat {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 10px 12px
+    }
+
+    .stat .label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px
+    }
+
+    .stat .value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #eee;
+      margin-top: 2px
+    }
+
+    .stat .value.good {
+      color: #5dcaa5
+    }
+
+    .stat .value.warn {
+      color: #f0997b
+    }
+
+    #map {
+      height: 70vh;
+      width: 100%;
+      border-top: 1px solid #1e1e3a;
+      border-bottom: 1px solid #1e1e3a;
+      transition: height 0.3s;
+      position: relative
+    }
+
+    #map.fullscreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 100vw;
+      z-index: 9999;
+      border: none
+    }
+
+    .map-expand {
+      position: absolute;
+      top: 10px;
+      left: 50px;
+      z-index: 1000;
+      background: #16213e;
+      border: 1px solid #2a2a4a;
+      color: #aaa;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .map-expand:hover {
+      border-color: #e94560;
+      color: #eee
+    }
+
+    .chart-section {
+      padding: 16px 24px
+    }
+
+    .chart-section h2 {
+      font-size: 15px;
+      font-weight: 500;
+      color: #ccc;
+      margin-bottom: 8px;
+      cursor: pointer;
+      user-select: none
+    }
+
+    .chart-section h2::before {
+      content: '\25BE ';
+      display: inline-block;
+      transition: transform 0.2s
+    }
+
+    .chart-section.collapsed h2::before {
+      transform: rotate(-90deg)
+    }
+
+    .chart-collapsible {
+      overflow: hidden;
+      max-height: 300px;
+      transition: max-height 0.3s ease
+    }
+
+    .chart-section.collapsed .chart-collapsible {
+      max-height: 0
+    }
+
+    .chart-wrap canvas {
+      cursor: grab
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 200px;
+      background: #16213e;
+      border-radius: 8px;
+      padding: 8px
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin: 8px 0;
+      font-size: 12px;
+      color: #888;
+      flex-wrap: wrap
+    }
+
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .legend .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px
+    }
+
+    .toggle-row {
+      padding: 8px 24px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .toggle-btn {
+      background: #16213e;
+      border: 1px solid #2a2a4a;
+      color: #aaa;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s
+    }
+
+    .toggle-btn:hover {
+      border-color: #e94560;
+      color: #eee
+    }
+
+    .toggle-btn.active {
+      background: #e94560;
+      border-color: #e94560;
+      color: #fff
+    }
+
+    .new-file {
+      background: none;
+      border: 1px solid #2a2a4a;
+      color: #aaa;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .new-file:hover {
+      border-color: #e94560;
+      color: #eee
+    }
+
+    .leaflet-popup-content {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #333
+    }
+
+    .leaflet-popup-content b {
+      font-weight: 600
+    }
+
+    .day-filter {
+      padding: 8px 24px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center
+    }
+
+    .date-group {
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .date-group label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px
+    }
+
+    .date-input {
+      background: #16213e;
+      border: 1px solid #2a2a4a;
+      color: #ccc;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      color-scheme: dark
+    }
+
+    .date-input:hover {
+      border-color: #e94560
+    }
+
+    .date-input:focus {
+      border-color: #e94560;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(233, 69, 96, 0.2)
+    }
+
+    .date-reset {
+      background: #16213e;
+      border: 1px solid #2a2a4a;
+      color: #aaa;
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s
+    }
+
+    .date-reset:hover {
+      border-color: #e94560;
+      color: #eee
+    }
+
+    .date-reset.active {
+      background: #e94560;
+      border-color: #e94560;
+      color: #fff
+    }
+
+    .tz-select {
+      background: #0f0f1a;
+      border: 1px solid #2a2a4a;
+      color: #aaa;
+      padding: 5px 8px;
+      border-radius: 16px;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: auto
+    }
+
+    .tz-select:hover {
+      border-color: #e94560;
+      color: #eee
+    }
+
+    .playback-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(22, 33, 62, 0.92);
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      backdrop-filter: blur(8px);
+      min-width: 360px
+    }
+
+    .play-btn {
+      background: #e94560;
+      border: none;
+      color: #fff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0
+    }
+
+    .play-btn:hover {
+      background: #c73450
+    }
+
+    .timeline-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: #2a2a4a;
+      border-radius: 2px;
+      outline: none
+    }
+
+    .timeline-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #e94560;
+      border-radius: 50%;
+      cursor: pointer
+    }
+
+    .speed-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0
+    }
+
+    .speed-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 60px;
+      height: 4px;
+      background: #2a2a4a;
+      border-radius: 2px;
+      outline: none
+    }
+
+    .speed-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #e94560;
+      border-radius: 50%;
+      cursor: pointer
+    }
+
+    .speed-label {
+      font-size: 11px;
+      color: #aaa;
+      min-width: 32px;
+      text-align: center;
+      white-space: nowrap
+    }
+
+    .playback-time {
+      font-size: 11px;
+      color: #aaa;
+      white-space: nowrap;
+      min-width: 85px;
+      text-align: center
+    }
+
+    .live-info {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(22, 33, 62, 0.92);
+      border: 1px solid #2a2a4a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.8;
+      backdrop-filter: blur(8px);
+      display: none;
+      min-width: 160px
+    }
+
+    .live-info .li-label {
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase
+    }
+
+    .live-info .li-val {
+      color: #eee;
+      font-weight: 600
+    }
+
+    .time-gradient-legend {
+      position: absolute;
+      bottom: 65px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(22, 33, 62, 0.88);
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 10px;
+      color: #aaa;
+      backdrop-filter: blur(6px)
+    }
+
+    .time-gradient-legend .gradient-bar {
+      width: 120px;
+      height: 8px;
+      border-radius: 3px;
+      margin: 4px 0 2px;
+      background: linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899, #ef4444)
+    }
+
+    .time-gradient-legend .labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
+    }
+
+    .pulse-marker {
+      width: 12px;
+      height: 12px;
+      background: #fbbf24;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      position: relative
+    }
+
+    .pulse-marker::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fbbf24;
+      animation: pulse-ring 1.2s ease-out infinite
+    }
+
+    .hover-highlight {
+      width: 16px;
+      height: 16px;
+      background: #fbbf24;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      position: relative
+    }
+
+    .hover-highlight::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(251, 191, 36, 0.4);
+      animation: pulse-ring 1.5s ease-out infinite
+    }
+
+    /* COG arrow markers */
+    .cog-arrow {
+      width: 20px;
+      height: 20px;
+    }
+
+    .cog-arrow svg {
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="upload-screen">
+    <div class="header">
+      <h1>GPS Log Viewer</h1>
+      <p>Upload a CSV from the GPS logger to visualize your track</p>
+    </div>
+    <div class="upload-area" id="dropZone">
+      <h2>Drop CSV file here</h2>
+      <p>or click to browse — accepts LOG.CSV or GPS_LOG_ALL.CSV</p>
+      <input type="file" id="fileInput" accept=".csv">
+      <br><button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose file</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="header">
+      <div style="flex:1">
+        <h1>GPS Log Viewer</h1>
+        <p id="summary"></p>
+      </div>
+      <button class="new-file" onclick="location.reload()">Load new file</button>
+    </div>
+    <div id="alertArea"></div>
+    <div class="stats" id="statsGrid"></div>
+    <div class="day-filter" id="dayFilter">
+      <div class="date-group">
+        <label>From</label>
+        <input type="date" class="date-input" id="dateFrom">
+      </div>
+      <div class="date-group">
+        <label>To</label>
+        <input type="date" class="date-input" id="dateTo">
+      </div>
+      <button class="date-reset active" id="dateReset">All</button>
+      <select class="tz-select" id="tzSelect"></select>
+    </div>
+    <div class="toggle-row">
+      <button class="toggle-btn active" data-layer="trail">Trail</button>
+      <button class="toggle-btn active" data-layer="points">Points</button>
+      <button class="toggle-btn" data-layer="direction">Direction</button>
+      <button class="toggle-btn" data-layer="speed">Speed heatmap</button>
+      <button class="toggle-btn" data-layer="altitude">Altitude</button>
+      <button class="toggle-btn active" data-layer="flights">Flight gaps</button>
+    </div>
+    <div id="map"></div>
+    <div class="chart-section" id="section-alt">
+      <h2>Altitude profile</h2>
+      <div class="chart-collapsible">
+        <div class="legend">
+          <span><span class="dot" style="background:#5dcaa5"></span>&lt;3 kts</span>
+          <span><span class="dot" style="background:#fac775"></span>3–10 kts</span>
+          <span><span class="dot" style="background:#f0997b"></span>10–20 kts</span>
+          <span><span class="dot" style="background:#e94560"></span>&gt;20 kts</span>
+        </div>
+        <div class="chart-wrap"><canvas id="altChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-section" id="section-spd">
+      <h2>Speed over time</h2>
+      <div class="chart-collapsible">
+        <div class="chart-wrap"><canvas id="spdChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-section" id="section-bat">
+      <h2>Battery discharge</h2>
+      <div class="chart-collapsible">
+        <div class="legend">
+          <span><span class="dot" style="background:#5dcaa5"></span>With GPS fix</span>
+          <span><span class="dot" style="background:#e94560"></span>No fix</span>
+        </div>
+        <div class="chart-wrap"><canvas id="batChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-section" id="section-sat">
+      <h2>Satellite count over time</h2>
+      <div class="chart-collapsible">
+        <div class="chart-wrap"><canvas id="satChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+  <script>
+    // --- Preferences (localStorage) ---
+    function loadPrefs() {
+      try {return JSON.parse(localStorage.getItem('gps_viewer_prefs')) || {};} catch {return {};}
+    }
+    function savePrefs(updates) {
+      const prefs = loadPrefs();
+      Object.assign(prefs, updates);
+      localStorage.setItem('gps_viewer_prefs', JSON.stringify(prefs));
+    }
+
+    // --- CSV Parser ---
+    function parseCSV(text) {
+      const lines = text.trim().replace(/\r/g, '').split('\n');
+      if (lines.length < 2) return [];
+      const header = lines[0].split(',').map(h => h.trim());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = lines[i].split(',');
+        if (vals.length < 5) continue; // skip truly broken rows
+        const row = {};
+
+        // Detect format by column count and map accordingly
+        if (header.length >= 14 && vals.length >= 14) {
+          // New header, new data — direct mapping
+          header.forEach((h, j) => row[h] = (vals[j] || '').trim());
+        } else if (header.length >= 14 && vals.length >= 11 && vals.length < 14) {
+          // New header, old data — insert empty cog, charge_rate, rtc_bat_low
+          row.datetime = (vals[0] || '').trim();
+          row.lat = (vals[1] || '').trim();
+          row.lon = (vals[2] || '').trim();
+          row.alt_m = (vals[3] || '').trim();
+          row.speed_kts = (vals[4] || '').trim();
+          row.cog = '';
+          row.satellites = (vals[5] || '').trim();
+          row.hdop = (vals[6] || '').trim();
+          row.battery_pct = (vals[7] || '').trim();
+          row.battery_v = (vals[8] || '').trim();
+          row.charge_rate = '';
+          row.rtc_bat_low = '';
+          row.fix = (vals[9] || '').trim();
+          row.boot = (vals[10] || '').trim();
+        } else if (header.length <= 11 && vals.length >= 14) {
+          // Old header, new data — map by known new-format positions
+          row.datetime = (vals[0] || '').trim();
+          row.lat = (vals[1] || '').trim();
+          row.lon = (vals[2] || '').trim();
+          row.alt_m = (vals[3] || '').trim();
+          row.speed_kts = (vals[4] || '').trim();
+          row.cog = (vals[5] || '').trim();
+          row.satellites = (vals[6] || '').trim();
+          row.hdop = (vals[7] || '').trim();
+          row.battery_pct = (vals[8] || '').trim();
+          row.battery_v = (vals[9] || '').trim();
+          row.charge_rate = (vals[10] || '').trim();
+          row.rtc_bat_low = (vals[11] || '').trim();
+          row.fix = (vals[12] || '').trim();
+          row.boot = (vals[13] || '').trim();
+        } else {
+          // Old header, old data — direct mapping, fill missing
+          header.forEach((h, j) => row[h] = (vals[j] || '').trim());
+          if (!('cog' in row)) row.cog = '';
+          if (!('charge_rate' in row)) row.charge_rate = '';
+          if (!('rtc_bat_low' in row)) row.rtc_bat_low = '';
+        }
+
+        if (row.datetime) rows.push(row);
+      }
+      return rows;
+    }
+
+    // --- Analysis ---
+    function analyze(rows) {
+      const fix = rows.filter(r => r.fix === '1');
+      const nofix = rows.filter(r => r.fix === '0');
+      const t0 = rows[0].datetime;
+      const t1 = rows[rows.length - 1].datetime;
+
+      const d0 = new Date(t0.replace('T', ' ') + 'Z');
+      const d1 = new Date(t1.replace('T', ' ') + 'Z');
+      const hours = (d1 - d0) / 3600000;
+
+      const sats = fix.map(r => parseInt(r.satellites)).filter(n => !isNaN(n));
+      const hdops = fix.map(r => parseFloat(r.hdop)).filter(n => !isNaN(n));
+      const speeds = fix.map(r => parseFloat(r.speed_kts)).filter(n => !isNaN(n));
+      const bats = rows.map(r => parseFloat(r.battery_pct)).filter(n => !isNaN(n));
+
+      let totalDist = 0;
+      for (let i = 1; i < fix.length; i++) {
+        totalDist += haversine(
+          parseFloat(fix[i - 1].lat), parseFloat(fix[i - 1].lon),
+          parseFloat(fix[i].lat), parseFloat(fix[i].lon)
+        );
+      }
+
+      const boots = new Set(rows.map(r => r.boot)).size;
+
+      // Check for RTC battery low flag
+      const rtcBatLow = rows.some(r => r.rtc_bat_low === '1');
+
+      return {
+        total: rows.length,
+        fixCount: fix.length,
+        nofixCount: nofix.length,
+        fixRate: (100 * fix.length / rows.length).toFixed(1),
+        hours: hours.toFixed(1),
+        t0, t1,
+        avgSats: sats.length ? (sats.reduce((a, b) => a + b, 0) / sats.length).toFixed(1) : 'N/A',
+        avgHdop: hdops.length ? (hdops.reduce((a, b) => a + b, 0) / hdops.length).toFixed(2) : 'N/A',
+        maxSpeed: speeds.length ? (Math.max(...speeds) * 1.852).toFixed(0) : 'N/A',
+        batStart: bats.length ? bats[0].toFixed(0) : 'N/A',
+        batEnd: bats.length ? bats[bats.length - 1].toFixed(0) : 'N/A',
+        distKm: (totalDist / 1000).toFixed(1),
+        boots,
+        rtcBatLow
+      };
+    }
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+      const dp = (lat2 - lat1) * Math.PI / 180;
+      const dl = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function spdColor(s) {
+      if (s > 20) return '#e94560';
+      if (s > 10) return '#f0997b';
+      if (s > 3) return '#fac775';
+      return '#5dcaa5';
+    }
+
+    function timeColor(t) {
+      const stops = [
+        [0, [59, 130, 246]],
+        [0.33, [139, 92, 246]],
+        [0.66, [236, 72, 153]],
+        [1, [239, 68, 68]]
+      ];
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const f = (t - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]);
+          const c = stops[i - 1][1].map((v, j) => Math.round(v + (stops[i][1][j] - v) * f));
+          return `rgb(${c[0]},${c[1]},${c[2]})`;
+        }
+      }
+      return `rgb(239,68,68)`;
+    }
+
+    function altColor(t) {
+      const stops = [
+        [0, [93, 202, 165]],
+        [0.5, [250, 199, 117]],
+        [1, [139, 92, 246]]
+      ];
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const f = (t - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]);
+          const c = stops[i - 1][1].map((v, j) => Math.round(v + (stops[i][1][j] - v) * f));
+          return `rgb(${c[0]},${c[1]},${c[2]})`;
+        }
+      }
+      return `rgb(139,92,246)`;
+    }
+
+    // --- COG arrow SVG ---
+    function cogArrowSvg(heading, color) {
+      // SVG arrow pointing up, rotated by heading degrees
+      return `<div class="cog-arrow" style="transform:rotate(${heading}deg)">` +
+        `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">` +
+        `<path d="M10 2 L14 14 L10 11 L6 14 Z" fill="${color}" stroke="#fff" stroke-width="0.8" stroke-linejoin="round"/>` +
+        `</svg></div>`;
+    }
+
+    // COG compass label
+    function cogLabel(deg) {
+      if (isNaN(deg) || deg < 0) return '';
+      const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+      return dirs[Math.round(deg / 22.5) % 16];
+    }
+
+    // --- Timezone helpers ---
+    const commonTimezones = [
+      'UTC',
+      'Pacific/Auckland', 'Pacific/Fiji',
+      'Australia/Melbourne', 'Australia/Sydney', 'Australia/Brisbane',
+      'Australia/Adelaide', 'Australia/Darwin', 'Australia/Perth',
+      'Asia/Tokyo', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Hong_Kong',
+      'Asia/Singapore', 'Asia/Kolkata', 'Asia/Dubai',
+      'Europe/Moscow', 'Europe/Istanbul', 'Europe/Helsinki',
+      'Europe/Berlin', 'Europe/Paris', 'Europe/London',
+      'Africa/Johannesburg', 'Africa/Cairo',
+      'America/New_York', 'America/Chicago', 'America/Denver',
+      'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu',
+      'America/Sao_Paulo', 'America/Argentina/Buenos_Aires'
+    ];
+
+    function dateInTz(tsMs, tz) {
+      const d = new Date(tsMs);
+      return new Intl.DateTimeFormat('en-CA', {timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'}).format(d);
+    }
+
+    function interpolateGreatCircle(lat1, lon1, lat2, lon2, t) {
+      const toRad = d => d * Math.PI / 180;
+      const toDeg = r => r * 180 / Math.PI;
+      const p1 = toRad(lat1), l1 = toRad(lon1);
+      const p2 = toRad(lat2), l2 = toRad(lon2);
+      const d = 2 * Math.asin(Math.sqrt(
+        Math.sin((p2 - p1) / 2) ** 2 +
+        Math.cos(p1) * Math.cos(p2) * Math.sin((l2 - l1) / 2) ** 2
+      ));
+      if (d < 1e-10) return {lat: lat1, lon: lon1};
+      const a = Math.sin((1 - t) * d) / Math.sin(d);
+      const b = Math.sin(t * d) / Math.sin(d);
+      const x = a * Math.cos(p1) * Math.cos(l1) + b * Math.cos(p2) * Math.cos(l2);
+      const y = a * Math.cos(p1) * Math.sin(l1) + b * Math.cos(p2) * Math.sin(l2);
+      const z = a * Math.sin(p1) + b * Math.sin(p2);
+      return {lat: toDeg(Math.atan2(z, Math.sqrt(x * x + y * y))), lon: toDeg(Math.atan2(y, x))};
+    }
+
+    function flightAltitude(t, cruiseAlt, durationMs) {
+      const climbMs = Math.min(20 * 60000, durationMs * 0.1);
+      const descentMs = Math.min(30 * 60000, durationMs * 0.15);
+      const climbFrac = climbMs / durationMs;
+      const descentFrac = descentMs / durationMs;
+      if (t < climbFrac) return cruiseAlt * (t / climbFrac);
+      if (t > 1 - descentFrac) return cruiseAlt * ((1 - t) / descentFrac);
+      return cruiseAlt;
+    }
+
+    function reconstructFlightGaps(rows) {
+      const reconstructed = [];
+      let i = 0;
+      while (i < rows.length) {
+        if (rows[i].fix === '0') {
+          const gapStart = i;
+          while (i < rows.length && rows[i].fix === '0') i++;
+          const gapEnd = i;
+
+          let lastFix = null;
+          for (let j = gapStart - 1; j >= 0; j--) {
+            if (rows[j].fix === '1' && rows[j].lat) {lastFix = rows[j]; break;}
+          }
+          let nextFix = null;
+          for (let j = gapEnd; j < rows.length; j++) {
+            if (rows[j].fix === '1' && rows[j].lat) {nextFix = rows[j]; break;}
+          }
+
+          if (lastFix && nextFix) {
+            const depTs = new Date(lastFix.datetime.replace('T', ' ') + 'Z').getTime();
+            const arrTs = new Date(nextFix.datetime.replace('T', ' ') + 'Z').getTime();
+            const durationMs = arrTs - depTs;
+            const dist = haversine(
+              parseFloat(lastFix.lat), parseFloat(lastFix.lon),
+              parseFloat(nextFix.lat), parseFloat(nextFix.lon)
+            );
+            const impliedSpeedKmh = (dist / 1000) / (durationMs / 3600000);
+
+            if (durationMs > 3600000 && dist > 100000 && impliedSpeedKmh > 100) {
+              const depLat = parseFloat(lastFix.lat), depLon = parseFloat(lastFix.lon);
+              const arrLat = parseFloat(nextFix.lat), arrLon = parseFloat(nextFix.lon);
+              const cruiseAlt = 10668;
+
+              const lonDiff = arrLon - depLon;
+              const crossesAntimeridian = Math.abs(lonDiff) > 180;
+
+              for (let j = gapStart; j < gapEnd; j++) {
+                const rowTs = new Date(rows[j].datetime.replace('T', ' ') + 'Z').getTime();
+                const t = (rowTs - depTs) / durationMs;
+                const pos = interpolateGreatCircle(depLat, depLon, arrLat, arrLon, t);
+                let lon = pos.lon;
+                if (crossesAntimeridian && depLon > 0 && arrLon < 0 && lon < depLon - 90) {
+                  lon += 360;
+                }
+                const alt = Math.round(flightAltitude(t, cruiseAlt, durationMs));
+                reconstructed.push({
+                  datetime: rows[j].datetime,
+                  lat: pos.lat.toFixed(6),
+                  lon: lon.toFixed(6),
+                  alt_m: String(alt),
+                  speed_kts: '',
+                  cog: '',
+                  satellites: '0',
+                  hdop: '',
+                  battery_pct: rows[j].battery_pct,
+                  battery_v: rows[j].battery_v,
+                  charge_rate: rows[j].charge_rate || '',
+                  fix: 'R',
+                  boot: rows[j].boot
+                });
+              }
+            }
+          }
+        } else {
+          i++;
+        }
+      }
+
+      for (let j = 1; j < reconstructed.length; j++) {
+        const d = haversine(
+          parseFloat(reconstructed[j - 1].lat), parseFloat(reconstructed[j - 1].lon),
+          parseFloat(reconstructed[j].lat), parseFloat(reconstructed[j].lon)
+        );
+        const dt = (new Date(reconstructed[j].datetime.replace('T', ' ') + 'Z').getTime() -
+          new Date(reconstructed[j - 1].datetime.replace('T', ' ') + 'Z').getTime()) / 1000;
+        if (dt > 0) {
+          reconstructed[j].speed_kts = ((d / dt) / 0.5144).toFixed(1);
+        }
+      }
+      if (reconstructed.length > 0 && !reconstructed[0].speed_kts) {
+        reconstructed[0].speed_kts = reconstructed.length > 1 ? reconstructed[1].speed_kts : '0';
+      }
+
+      return reconstructed;
+    }
+
+    // --- Render ---
+    function render(rows) {
+      const stats = analyze(rows);
+      const fix = rows.filter(r => r.fix === '1');
+      const recon = reconstructFlightGaps(rows);
+
+      document.getElementById('upload-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+
+      // RTC battery warning
+      if (stats.rtcBatLow) {
+        document.getElementById('alertArea').innerHTML =
+          `<div class="alert-banner"><span class="alert-icon">⚠</span>RTC coin cell battery is low — replace the CR1220 to maintain timekeeping during power loss.</div>`;
+      }
+
+      // Summary
+      const s0 = stats.t0.substring(5, 16).replace('T', ' ');
+      const s1 = stats.t1.substring(5, 16).replace('T', ' ');
+      const reconNote = recon.length > 0 ? ` · ${recon.length} pts reconstructed` : '';
+      document.getElementById('summary').textContent =
+        `${s0} → ${s1} UTC · ${stats.hours}h · ${stats.boots} boots · ${stats.distKm} km tracked${reconNote}`;
+
+      // Stats grid
+      const grid = document.getElementById('statsGrid');
+      const statItems = [
+        ['Fix rate', stats.fixRate + '%', parseFloat(stats.fixRate) > 70 ? 'good' : 'warn'],
+        ['Points', `${stats.fixCount} / ${stats.total}`, ''],
+        ['Avg sats', stats.avgSats, parseFloat(stats.avgSats) > 8 ? 'good' : 'warn'],
+        ['Avg HDOP', stats.avgHdop, parseFloat(stats.avgHdop) < 2 ? 'good' : 'warn'],
+        ['Max speed', stats.maxSpeed + ' km/h', ''],
+        ['Battery', `${stats.batStart}% → ${stats.batEnd}%`, ''],
+      ];
+      grid.innerHTML = statItems.map(([label, value, cls]) =>
+        `<div class="stat"><div class="label">${label}</div><div class="value ${cls}">${value}</div></div>`
+      ).join('');
+
+      // Build map points
+      function rowToPoint(r) {
+        const isRecon = r.fix === 'R';
+        const cogVal = parseFloat(r.cog);
+        return {
+          lat: parseFloat(r.lat),
+          lon: parseFloat(r.lon),
+          spd: parseFloat(r.speed_kts) || 0,
+          sat: parseInt(r.satellites) || 0,
+          alt: parseFloat(r.alt_m) || 0,
+          cog: isNaN(cogVal) ? -1 : cogVal,
+          t: r.datetime.substring(5, 16).replace('T', ' '),
+          dt: r.datetime,
+          ts: new Date(r.datetime.replace('T', ' ') + 'Z').getTime(),
+          boot: parseInt(r.boot) || 0,
+          hdop: parseFloat(r.hdop) || 0,
+          bat: parseFloat(r.battery_pct) || 0,
+          chargeRate: parseFloat(r.charge_rate),
+          reconstructed: isRecon
+        };
+      }
+      const allPoints = [...fix, ...recon];
+      allPoints.sort((a, b) => {
+        const ta = new Date(a.datetime.replace('T', ' ') + 'Z').getTime();
+        const tb = new Date(b.datetime.replace('T', ' ') + 'Z').getTime();
+        return ta - tb;
+      });
+      const M = allPoints.map(rowToPoint);
+
+      // Fix antimeridian crossings
+      for (let i = 1; i < M.length; i++) {
+        const diff = M[i].lon - M[i - 1].lon;
+        if (diff > 180) M[i].lon -= 360;
+        else if (diff < -180) M[i].lon += 360;
+      }
+
+      // Cumulative distance
+      const cumDist = [0];
+      for (let i = 1; i < M.length; i++) {
+        cumDist.push(cumDist[i - 1] + haversine(M[i - 1].lat, M[i - 1].lon, M[i].lat, M[i].lon));
+      }
+
+      const tsMin = M[0].ts;
+      const tsMax = M[M.length - 1].ts;
+      const tsRange = tsMax - tsMin || 1;
+
+      const alts = M.map(p => p.alt);
+      const altMin = Math.min(...alts);
+      const altMax = Math.max(...alts);
+      const altRange = altMax - altMin || 1;
+
+      // Check if COG data is available in this dataset
+      const hasCOG = M.some(p => p.cog >= 0);
+
+      // --- Timezone selector ---
+      const tzSelect = document.getElementById('tzSelect');
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const savedTz = loadPrefs().timezone;
+      let selectedTz = savedTz && commonTimezones.includes(savedTz) ? savedTz : browserTz;
+
+      let tzList = [...commonTimezones];
+      if (!tzList.includes(browserTz)) tzList.unshift(browserTz);
+      if (savedTz && !tzList.includes(savedTz)) tzList.unshift(savedTz);
+      tzList.forEach(tz => {
+        const opt = document.createElement('option');
+        opt.value = tz;
+        opt.textContent = tz.replace(/_/g, ' ');
+        if (tz === selectedTz) opt.selected = true;
+        tzSelect.appendChild(opt);
+      });
+
+      tzSelect.addEventListener('change', () => {
+        selectedTz = tzSelect.value;
+        savePrefs({timezone: selectedTz});
+        activeDay = null;
+        recomputeDays();
+        applyDayFilter();
+      });
+
+      // --- Day filter ---
+      const dateFrom = document.getElementById('dateFrom');
+      const dateTo = document.getElementById('dateTo');
+      const dateReset = document.getElementById('dateReset');
+      let activeDay = null;
+      let uniqueDays = [];
+
+      function pointDate(p) {return dateInTz(p.ts, selectedTz);}
+
+      function recomputeDays() {
+        uniqueDays = [...new Set(M.map(p => pointDate(p)))].sort();
+      }
+
+      recomputeDays();
+
+      function buildDayFilter() {
+        if (uniqueDays.length === 0) return;
+        dateFrom.min = uniqueDays[0];
+        dateFrom.max = uniqueDays[uniqueDays.length - 1];
+        dateTo.min = uniqueDays[0];
+        dateTo.max = uniqueDays[uniqueDays.length - 1];
+        if (activeDay === null) {
+          dateFrom.value = '';
+          dateTo.value = '';
+          dateReset.classList.add('active');
+        } else {
+          dateReset.classList.remove('active');
+        }
+      }
+
+      function dateInRange(dateStr) {
+        if (activeDay === null) return true;
+        return dateStr >= activeDay.from && dateStr <= activeDay.to;
+      }
+
+      dateFrom.addEventListener('change', () => {
+        const from = dateFrom.value;
+        if (!from) {activeDay = null; applyDayFilter(); return;}
+        const to = dateTo.value || from;
+        if (to < from) dateTo.value = from;
+        activeDay = {from, to: dateTo.value || from};
+        dateReset.classList.remove('active');
+        applyDayFilter();
+      });
+
+      dateTo.addEventListener('change', () => {
+        const to = dateTo.value;
+        if (!to) {activeDay = null; applyDayFilter(); return;}
+        const from = dateFrom.value || to;
+        if (from > to) dateFrom.value = to;
+        activeDay = {from: dateFrom.value || to, to};
+        dateReset.classList.remove('active');
+        applyDayFilter();
+      });
+
+      dateReset.addEventListener('click', () => {
+        activeDay = null;
+        applyDayFilter();
+      });
+
+      buildDayFilter();
+
+      // --- Map ---
+      const pts = M.map(p => [p.lat, p.lon]);
+      const map = L.map('map', {zoomControl: true}).fitBounds(L.latLngBounds(pts).pad(0.05));
+
+      const tiles = {
+        'Dark': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {attribution: 'CartoDB', maxZoom: 19}),
+        'Street': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: 'CartoDB Voyager', maxZoom: 19}),
+        'Topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {attribution: 'Esri World Topo', maxZoom: 19}),
+        'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {attribution: 'Esri World Imagery', maxZoom: 19}),
+        'Light': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {attribution: 'CartoDB', maxZoom: 19})
+      };
+      const savedTile = loadPrefs().tileLayer;
+      tiles[savedTile && tiles[savedTile] ? savedTile : 'Dark'].addTo(map);
+      L.control.layers(tiles, null, {position: 'topright'}).addTo(map);
+      map.on('baselayerchange', e => savePrefs({tileLayer: e.name}));
+
+      // Fullscreen toggle
+      const mapEl = document.getElementById('map');
+      const expandBtn = document.createElement('button');
+      expandBtn.className = 'map-expand';
+      expandBtn.textContent = 'Fullscreen';
+      mapEl.appendChild(expandBtn);
+      expandBtn.addEventListener('click', () => {
+        mapEl.classList.toggle('fullscreen');
+        expandBtn.textContent = mapEl.classList.contains('fullscreen') ? 'Exit fullscreen (Esc)' : 'Fullscreen';
+        setTimeout(() => map.invalidateSize(), 350);
+      });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && mapEl.classList.contains('fullscreen')) {
+          mapEl.classList.remove('fullscreen');
+          expandBtn.textContent = 'Fullscreen';
+          setTimeout(() => map.invalidateSize(), 350);
+        }
+      });
+
+      // --- Trail segments ---
+      const trailSegs = [];
+      const speedSegs = [];
+      const altSegs = [];
+      for (let i = 1; i < M.length; i++) {
+        const coords = [[M[i - 1].lat, M[i - 1].lon], [M[i].lat, M[i].lon]];
+        const isRecon = M[i].reconstructed || M[i - 1].reconstructed;
+        const dash = isRecon ? '8,10' : null;
+        trailSegs.push({
+          idx: i, recon: isRecon, layers: [
+            L.polyline(coords, {color: '#000', weight: 8, opacity: 0.3, dashArray: dash}),
+            L.polyline(coords, {color: isRecon ? '#06b6d4' : '#e94560', weight: 8, opacity: 0.15, dashArray: dash}),
+            L.polyline(coords, {color: isRecon ? '#06b6d4' : '#e94560', weight: 3, opacity: 0.8, dashArray: dash})
+          ]
+        });
+        const sc = spdColor(M[i].spd);
+        speedSegs.push({
+          idx: i, recon: isRecon, layers: [
+            L.polyline(coords, {color: '#000', weight: 8, opacity: 0.25, dashArray: dash}),
+            L.polyline(coords, {color: sc, weight: 7, opacity: 0.15, dashArray: dash}),
+            L.polyline(coords, {color: sc, weight: 4, opacity: 0.85, dashArray: dash})
+          ]
+        });
+        const at = (M[i].alt - altMin) / altRange;
+        const ac = altColor(at);
+        altSegs.push({
+          idx: i, recon: isRecon, layers: [
+            L.polyline(coords, {color: '#000', weight: 8, opacity: 0.25, dashArray: dash}),
+            L.polyline(coords, {color: ac, weight: 7, opacity: 0.15, dashArray: dash}),
+            L.polyline(coords, {color: ac, weight: 4, opacity: 0.85, dashArray: dash})
+          ]
+        });
+      }
+      const trailGroup = L.layerGroup(trailSegs.flatMap(s => s.layers)).addTo(map);
+      const speedGroup = L.layerGroup(speedSegs.flatMap(s => s.layers));
+      const altGroup = L.layerGroup(altSegs.flatMap(s => s.layers));
+
+      // --- COG direction arrows ---
+      // Place arrows every Nth point, only where speed > 1 knot and COG is valid
+      const COG_MIN_SPEED = 1.0; // knots - COG is unreliable below this
+      const COG_SAMPLE_RATE = Math.max(1, Math.floor(M.length / 150)); // ~150 arrows max
+      const cogArrows = [];
+      for (let i = 0; i < M.length; i += COG_SAMPLE_RATE) {
+        const p = M[i];
+        if (p.cog < 0 || p.spd < COG_MIN_SPEED || p.reconstructed) continue;
+        const color = spdColor(p.spd);
+        const marker = L.marker([p.lat, p.lon], {
+          icon: L.divIcon({
+            className: '',
+            html: cogArrowSvg(p.cog, color),
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          }),
+          interactive: false
+        });
+        cogArrows.push({idx: i, marker});
+      }
+      const cogGroup = L.layerGroup(cogArrows.map(a => a.marker));
+
+      // --- Boot gap markers ---
+      const bootGapLines = [];
+      for (let i = 1; i < M.length; i++) {
+        if (M[i].boot !== M[i - 1].boot && !M[i].reconstructed && !M[i - 1].reconstructed) {
+          bootGapLines.push({
+            idx: i,
+            line: L.polyline(
+              [[M[i - 1].lat, M[i - 1].lon], [M[i].lat, M[i].lon]],
+              {color: '#fbbf24', weight: 2, opacity: 0.6, dashArray: '6,8'}
+            )
+          });
+        }
+      }
+      const bootGapGroup = L.layerGroup(bootGapLines.map(b => b.line));
+      bootGapGroup.addTo(map);
+
+      // --- Points ---
+      const circles = M.map((p, i) => {
+        const t = (p.ts - tsMin) / tsRange;
+        const c = L.circleMarker([p.lat, p.lon], p.reconstructed ? {
+          radius: 4, fillColor: 'transparent', fillOpacity: 0,
+          color: '#06b6d4', weight: 1.5, opacity: 0.8
+        } : {
+          radius: 4, fillColor: timeColor(t), fillOpacity: 0.8,
+          color: '#fff', weight: 1, opacity: 0.6
+        });
+        const reconLabel = p.reconstructed ? '<br><b style="color:#06b6d4">⟐ Reconstructed</b>' : '';
+        const cogText = p.cog >= 0 ? `COG: ${p.cog.toFixed(0)}° ${cogLabel(p.cog)}<br>` : '';
+        const crText = !isNaN(p.chargeRate) ? `Charge: ${p.chargeRate > 0 ? '+' : ''}${p.chargeRate.toFixed(1)}%/hr<br>` : '';
+        c.bindPopup(`<b>${p.t}</b><br>Speed: ${(p.spd * 1.852).toFixed(1)} km/h<br>${cogText}Alt: ${p.alt}m<br>Sats: ${p.sat}<br>HDOP: ${p.hdop}<br>Bat: ${p.bat}%<br>${crText}Boot: #${p.boot}${reconLabel}`);
+        return c;
+      });
+      const pointGroup = L.layerGroup(circles).addTo(map);
+
+      // --- Time gradient legend ---
+      const gradLegend = document.createElement('div');
+      gradLegend.className = 'time-gradient-legend';
+      gradLegend.innerHTML = `
+        <div style="font-weight:600">Time progression</div>
+        <div class="gradient-bar"></div>
+        <div class="labels"><span>${M[0].t}</span><span>${M[M.length - 1].t}</span></div>
+      `;
+      mapEl.appendChild(gradLegend);
+
+      // Start/End markers
+      L.marker([M[0].lat, M[0].lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="background:#5dcaa5;color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap">START</div>',
+          iconAnchor: [0, 0]
+        })
+      }).addTo(map);
+      L.marker([M[M.length - 1].lat, M[M.length - 1].lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="background:#e94560;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap">END</div>',
+          iconAnchor: [0, 0]
+        })
+      }).addTo(map);
+
+      // --- Playback controls ---
+      const playbackBar = document.createElement('div');
+      playbackBar.className = 'playback-bar';
+      playbackBar.innerHTML = `
+        <button class="play-btn" id="playBtn">&#9654;</button>
+        <input type="range" class="timeline-slider" id="timeSlider" min="0" max="${M.length - 1}" value="0">
+        <span class="playback-time" id="playTime">${M[0].t}</span>
+        <div class="speed-slider-wrap">
+          <input type="range" class="speed-slider" id="speedSlider" min="0" max="8" step="1" value="4">
+          <span class="speed-label" id="speedLabel">50x</span>
+        </div>
+      `;
+      mapEl.appendChild(playbackBar);
+
+      const liveInfo = document.createElement('div');
+      liveInfo.className = 'live-info';
+      liveInfo.id = 'liveInfo';
+      liveInfo.style.top = '80px';
+      mapEl.appendChild(liveInfo);
+
+      // Playback state
+      let playbackActive = false;
+      let playbackPos = 0;
+      let playbackTimer = null;
+      let playIndices = M.map((_, i) => i);
+      let simTime = 0;
+      const playBtn = document.getElementById('playBtn');
+      const timeSlider = document.getElementById('timeSlider');
+      const playTime = document.getElementById('playTime');
+      const speedSlider = document.getElementById('speedSlider');
+      const speedLabel = document.getElementById('speedLabel');
+
+      const speedSteps = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+      const savedSpeed = loadPrefs().playbackSpeed;
+      if (savedSpeed != null) speedSlider.value = savedSpeed;
+      function getSpeedMultiplier() {return speedSteps[parseInt(speedSlider.value)];}
+      function updateSpeedLabel() {speedLabel.textContent = getSpeedMultiplier() + 'x';}
+      updateSpeedLabel();
+
+      const playbackMarker = L.marker([M[0].lat, M[0].lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div class="pulse-marker"></div>',
+          iconSize: [12, 12],
+          iconAnchor: [6, 6]
+        }),
+        zIndexOffset: 10000
+      });
+
+      function playTs(pos) {return M[playIndices[pos]].ts;}
+
+      function updatePlayIndices() {
+        stopPlayback();
+        playIndices = activeDay === null
+          ? M.map((_, i) => i)
+          : M.map((p, i) => dateInRange(pointDate(p)) ? i : -1).filter(i => i >= 0);
+        playbackPos = 0;
+        simTime = 0;
+        timeSlider.max = Math.max(0, playIndices.length - 1);
+        timeSlider.value = 0;
+        if (playIndices.length > 0) {
+          playTime.textContent = M[playIndices[0]].t;
+        }
+        map.removeLayer(playbackMarker);
+        liveInfo.style.display = 'none';
+      }
+
+      function updatePlaybackPosition(pos) {
+        playbackPos = Math.min(pos, playIndices.length - 1);
+        const mIdx = playIndices[playbackPos];
+        const p = M[mIdx];
+        playbackMarker.setLatLng([p.lat, p.lon]);
+        timeSlider.value = playbackPos;
+        playTime.textContent = p.t;
+        const cogLine = p.cog >= 0 ? `<div><span class="li-label">COG</span> <span class="li-val">${p.cog.toFixed(0)}° ${cogLabel(p.cog)}</span></div>` : '';
+        const crLine = !isNaN(p.chargeRate) ? `<div><span class="li-label">Charge</span> <span class="li-val">${p.chargeRate > 0 ? '+' : ''}${p.chargeRate.toFixed(1)}%/hr</span></div>` : '';
+        liveInfo.innerHTML = `
+          <div><span class="li-label">Speed</span> <span class="li-val">${(p.spd * 1.852).toFixed(1)} km/h</span></div>
+          ${cogLine}
+          <div><span class="li-label">Alt</span> <span class="li-val">${p.alt} m</span></div>
+          <div><span class="li-label">Sats</span> <span class="li-val">${p.sat}</span></div>
+          <div><span class="li-label">Bat</span> <span class="li-val">${p.bat}%</span></div>
+          ${crLine}
+          <div><span class="li-label">Boot</span> <span class="li-val">#${p.boot}</span></div>
+        `;
+        updateChartCursors(mIdx);
+      }
+
+      function startPlayback() {
+        if (playIndices.length === 0) return;
+        playbackActive = true;
+        playBtn.innerHTML = '&#9646;&#9646;';
+        map.addLayer(playbackMarker);
+        liveInfo.style.display = 'block';
+        const startTs = playTs(0);
+        simTime = playTs(playbackPos) - startTs;
+        let lastRealTime = performance.now();
+
+        playbackTimer = setInterval(() => {
+          const now = performance.now();
+          const realDelta = now - lastRealTime;
+          lastRealTime = now;
+          simTime += realDelta * getSpeedMultiplier();
+          const targetTs = startTs + simTime;
+          while (playbackPos < playIndices.length - 1 && playTs(playbackPos + 1) <= targetTs) {
+            playbackPos++;
+          }
+          if (playbackPos >= playIndices.length - 1) {
+            playbackPos = playIndices.length - 1;
+            updatePlaybackPosition(playbackPos);
+            stopPlayback();
+            return;
+          }
+          updatePlaybackPosition(playbackPos);
+        }, 50);
+      }
+
+      function stopPlayback() {
+        playbackActive = false;
+        playBtn.innerHTML = '&#9654;';
+        if (playbackTimer) clearInterval(playbackTimer);
+        playbackTimer = null;
+      }
+
+      playBtn.addEventListener('click', () => {
+        if (playbackActive) {stopPlayback();}
+        else {
+          if (playbackPos >= playIndices.length - 1) playbackPos = 0;
+          startPlayback();
+        }
+      });
+
+      timeSlider.addEventListener('input', () => {
+        const pos = parseInt(timeSlider.value);
+        if (playbackActive) stopPlayback();
+        if (playIndices.length === 0) return;
+        map.addLayer(playbackMarker);
+        liveInfo.style.display = 'block';
+        playbackPos = pos;
+        simTime = playTs(pos) - playTs(0);
+        updatePlaybackPosition(pos);
+      });
+
+      speedSlider.addEventListener('input', () => {
+        updateSpeedLabel();
+        savePrefs({playbackSpeed: speedSlider.value});
+      });
+
+      // --- Hover highlight marker ---
+      const hoverMarker = L.marker([0, 0], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div class="hover-highlight"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        }),
+        zIndexOffset: 9000
+      });
+      let hoverMarkerVisible = false;
+
+      function showHoverMarker(idx) {
+        if (idx < 0 || idx >= M.length) return;
+        const p = M[idx];
+        hoverMarker.setLatLng([p.lat, p.lon]);
+        if (!hoverMarkerVisible) {map.addLayer(hoverMarker); hoverMarkerVisible = true;}
+      }
+
+      function hideHoverMarker() {
+        if (hoverMarkerVisible) {map.removeLayer(hoverMarker); hoverMarkerVisible = false;}
+      }
+
+      // --- Toggle buttons ---
+      const savedToggles = loadPrefs().toggles;
+      if (savedToggles) {
+        const layerGroups = {trail: trailGroup, speed: speedGroup, altitude: altGroup, points: pointGroup, direction: cogGroup};
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+          const layer = btn.dataset.layer;
+          const shouldBeActive = !!savedToggles[layer];
+          const isActive = btn.classList.contains('active');
+          if (shouldBeActive !== isActive) {
+            if (shouldBeActive) {
+              btn.classList.add('active');
+              if (layerGroups[layer]) map.addLayer(layerGroups[layer]);
+              if (['trail', 'speed', 'altitude'].includes(layer)) {
+                ['trail', 'speed', 'altitude'].filter(l => l !== layer).forEach(l => {
+                  const b = document.querySelector(`[data-layer="${l}"]`);
+                  if (b) {b.classList.remove('active'); if (layerGroups[l]) map.removeLayer(layerGroups[l]);}
+                });
+                map.addLayer(bootGapGroup);
+              }
+              if (layer === 'flights') toggleFlightGaps(true);
+            } else {
+              btn.classList.remove('active');
+              if (layerGroups[layer]) map.removeLayer(layerGroups[layer]);
+              if (['trail', 'speed', 'altitude'].includes(layer)) map.removeLayer(bootGapGroup);
+              if (layer === 'flights') toggleFlightGaps(false);
+            }
+          }
+        });
+      }
+
+      function saveToggleStates() {
+        const toggles = {};
+        document.querySelectorAll('.toggle-btn').forEach(b => toggles[b.dataset.layer] = b.classList.contains('active'));
+        savePrefs({toggles});
+      }
+
+      document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const layer = btn.dataset.layer;
+
+          if (layer === 'trail' || layer === 'speed' || layer === 'altitude') {
+            const isActive = btn.classList.contains('active');
+            if (isActive) {
+              btn.classList.remove('active');
+              if (layer === 'trail') map.removeLayer(trailGroup);
+              else if (layer === 'speed') map.removeLayer(speedGroup);
+              else if (layer === 'altitude') map.removeLayer(altGroup);
+              map.removeLayer(bootGapGroup);
+            } else {
+              ['trail', 'speed', 'altitude'].forEach(l => {
+                const b = document.querySelector(`[data-layer="${l}"]`);
+                if (b && b.classList.contains('active')) {
+                  b.classList.remove('active');
+                  if (l === 'trail') map.removeLayer(trailGroup);
+                  else if (l === 'speed') map.removeLayer(speedGroup);
+                  else if (l === 'altitude') map.removeLayer(altGroup);
+                }
+              });
+              btn.classList.add('active');
+              if (layer === 'trail') map.addLayer(trailGroup);
+              else if (layer === 'speed') map.addLayer(speedGroup);
+              else if (layer === 'altitude') map.addLayer(altGroup);
+              map.addLayer(bootGapGroup);
+            }
+          } else if (layer === 'points') {
+            btn.classList.toggle('active');
+            btn.classList.contains('active') ? map.addLayer(pointGroup) : map.removeLayer(pointGroup);
+          } else if (layer === 'direction') {
+            btn.classList.toggle('active');
+            btn.classList.contains('active') ? map.addLayer(cogGroup) : map.removeLayer(cogGroup);
+          } else if (layer === 'flights') {
+            btn.classList.toggle('active');
+            toggleFlightGaps(btn.classList.contains('active'));
+          }
+          saveToggleStates();
+        });
+      });
+
+      function toggleFlightGaps(show) {
+        [trailSegs, speedSegs, altSegs].forEach(segs => {
+          const group = segs === trailSegs ? trailGroup : segs === speedSegs ? speedGroup : altGroup;
+          segs.forEach(s => {
+            if (!s.recon) return;
+            s.layers.forEach(layer => {
+              if (show) {if (!group.hasLayer(layer)) group.addLayer(layer);}
+              else {group.removeLayer(layer);}
+            });
+          });
+        });
+        circles.forEach((c, i) => {
+          if (!M[i].reconstructed) return;
+          if (show) {if (!pointGroup.hasLayer(c)) pointGroup.addLayer(c);}
+          else {pointGroup.removeLayer(c);}
+        });
+      }
+
+      // --- Chart cursor plugin ---
+      const chartZoomOpts = {
+        zoom: {
+          pan: {enabled: true, mode: 'x'},
+          zoom: {wheel: {enabled: true}, pinch: {enabled: true}, drag: {enabled: false}, mode: 'x'}
+        }
+      };
+
+      const verticalLinePlugin = {
+        id: 'verticalLine',
+        afterDraw(chart) {
+          if (chart._cursorIndex == null) return;
+          const meta = chart.getDatasetMeta(0);
+          if (!meta.data[chart._cursorIndex]) return;
+          const x = meta.data[chart._cursorIndex].x;
+          const ctx = chart.ctx;
+          const yAxis = chart.scales.y;
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(x, yAxis.top);
+          ctx.lineTo(x, yAxis.bottom);
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+          ctx.stroke();
+          ctx.restore();
+        }
+      };
+
+      // --- Charts ---
+      const sampleRate = Math.max(1, Math.floor(M.length / 600));
+      const chartM = M.filter((_, i) => i % sampleRate === 0);
+      const chartOrigIndices = [];
+      for (let i = 0; i < M.length; i += sampleRate) chartOrigIndices.push(i);
+
+      const altDistLabels = chartM.map((_, i) => (cumDist[chartOrigIndices[i]] / 1000).toFixed(1));
+      const altDataVals = chartM.map(p => p.alt);
+      const altSegColors = chartM.map(p => spdColor(p.spd));
+
+      const chartHoverClick = {
+        onHover: (e, elements) => {
+          if (elements.length > 0) showHoverMarker(chartOrigIndices[elements[0].index]);
+          else hideHoverMarker();
+        },
+        onClick: (e, elements) => {
+          if (elements.length > 0) {
+            const idx = chartOrigIndices[elements[0].index];
+            map.setView([M[idx].lat, M[idx].lon], 14);
+          }
+        }
+      };
+
+      const altChart = new Chart(document.getElementById('altChart'), {
+        type: 'line',
+        data: {
+          labels: altDistLabels,
+          datasets: [{
+            data: altDataVals, borderColor: '#fac775', borderWidth: 1.5, pointRadius: 0,
+            pointHoverRadius: 4, pointHoverBackgroundColor: '#fbbf24',
+            fill: true, backgroundColor: 'rgba(250,199,117,0.1)',
+            segment: {borderColor: ctx => {const i = ctx.p0DataIndex; return i < altSegColors.length ? altSegColors[i] : '#fac775';}},
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {legend: {display: false}, tooltip: {callbacks: {title: items => items[0] ? `${items[0].label} km` : '', label: item => `${item.raw} m`}}, ...chartZoomOpts},
+          scales: {
+            x: {title: {display: true, text: 'Distance (km)', color: '#666', font: {size: 10}}, ticks: {maxTicksLimit: 12, color: '#666', font: {size: 10}}, grid: {color: 'rgba(255,255,255,0.05)'}},
+            y: {title: {display: true, text: 'Altitude (m)', color: '#666', font: {size: 10}}, ticks: {color: '#666', font: {size: 10}}, grid: {color: 'rgba(255,255,255,0.05)'}}
+          },
+          ...chartHoverClick
+        },
+        plugins: [verticalLinePlugin]
+      });
+
+      const spdChart = new Chart(document.getElementById('spdChart'), {
+        type: 'line',
+        data: {
+          labels: chartM.map(p => p.t),
+          datasets: [{
+            data: chartM.map(p => p.spd * 1.852), borderColor: '#f0997b', borderWidth: 1.5, pointRadius: 0,
+            pointHoverRadius: 4, pointHoverBackgroundColor: '#fbbf24',
+            fill: true, backgroundColor: 'rgba(240,153,123,0.1)',
+            segment: {borderColor: ctx => {const i = ctx.p0DataIndex; return i < chartM.length ? spdColor(chartM[i].spd) : '#f0997b';}},
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {legend: {display: false}, tooltip: {callbacks: {label: item => `${item.raw.toFixed(1)} km/h`}}, ...chartZoomOpts},
+          scales: {
+            x: {ticks: {maxTicksLimit: 10, color: '#666', font: {size: 10}}, grid: {color: 'rgba(255,255,255,0.05)'}},
+            y: {title: {display: true, text: 'Speed (km/h)', color: '#666', font: {size: 10}}, ticks: {color: '#666', font: {size: 10}}, grid: {color: 'rgba(255,255,255,0.05)'}}
+          },
+          ...chartHoverClick
+        },
+        plugins: [verticalLinePlugin]
+      });
+
+      const batSample = rows.filter((_, i) => i % 3 === 0);
+      const batChart = new Chart(document.getElementById('batChart'), {
+        type: 'line',
+        data: {
+          labels: batSample.map(r => r.datetime.substring(5, 16).replace('T', ' ')),
+          datasets: [{
+            data: batSample.map(r => parseFloat(r.battery_pct) || 0), borderColor: '#5dcaa5', borderWidth: 1.5, pointRadius: 0,
+            fill: true, backgroundColor: 'rgba(93,202,165,0.1)',
+            segment: {borderColor: ctx => {const i = ctx.p0DataIndex; return batSample[i].fix === '1' ? '#5dcaa5' : '#e94560';}},
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {legend: {display: false}, ...chartZoomOpts},
+          scales: {
+            x: {ticks: {maxTicksLimit: 10, color: '#666', font: {size: 10}}, grid: {color: 'rgba(255,255,255,0.05)'}},
+            y: {ticks: {color: '#666', font: {size: 10}, callback: v => v + '%'}, grid: {color: 'rgba(255,255,255,0.05)'}}
+          }
+        },
+        plugins: [verticalLinePlugin]
+      });
+
+      const satChart = new Chart(document.getElementById('satChart'), {
+        type: 'line',
+        data: {
+          labels: chartM.map(p => p.t),
+          datasets: [{
+            data: chartM.map(p => p.sat), borderColor: '#85B7EB', borderWidth: 1.5, pointRadius: 0,
+            pointHoverRadius: 4, pointHoverBackgroundColor: '#fbbf24',
+            fill: true, backgroundColor: 'rgba(133,183,235,0.1)', tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {legend: {display: false}, ...chartZoomOpts},
+          scales: {
+            x: {ticks: {maxTicksLimit: 10, color: '#666', font: {size: 10}}, grid: {color: 'rgba(255,255,255,0.05)'}},
+            y: {min: 0, ticks: {color: '#666', font: {size: 10}}, grid: {color: 'rgba(255,255,255,0.05)'}}
+          },
+          ...chartHoverClick
+        },
+        plugins: [verticalLinePlugin]
+      });
+
+      // Double-click to reset chart zoom
+      const chartMap = {'section-alt': altChart, 'section-spd': spdChart, 'section-bat': batChart, 'section-sat': satChart};
+      Object.entries(chartMap).forEach(([id, chart]) => {
+        document.querySelector(`#${id} canvas`).addEventListener('dblclick', () => chart.resetZoom());
+      });
+
+      // Collapsible chart sections
+      const prefs = loadPrefs();
+      const collapsedSections = new Set(prefs.collapsed || []);
+      document.querySelectorAll('.chart-section').forEach(section => {
+        if (collapsedSections.has(section.id)) section.classList.add('collapsed');
+        section.querySelector('h2').addEventListener('click', () => {
+          section.classList.toggle('collapsed');
+          if (!section.classList.contains('collapsed')) {
+            const chart = chartMap[section.id];
+            if (chart) setTimeout(() => chart.resize(), 350);
+          }
+          const collapsed = [];
+          document.querySelectorAll('.chart-section.collapsed').forEach(s => collapsed.push(s.id));
+          savePrefs({collapsed});
+        });
+      });
+
+      // Chart cursor update
+      function updateChartCursors(mIdx) {
+        const ts = M[mIdx].ts;
+        const visibleChartM = activeDay === null ? chartM : chartM.filter(p => dateInRange(pointDate(p)));
+        let chartIdx = 0;
+        for (let i = 0; i < visibleChartM.length; i++) {
+          if (visibleChartM[i].ts <= ts) chartIdx = i; else break;
+        }
+        [altChart, spdChart, satChart].forEach(ch => {ch._cursorIndex = chartIdx; ch.draw();});
+
+        const visibleBat = activeDay === null ? batSample : batSample.filter(r => {
+          const rts = new Date(r.datetime.replace('T', ' ') + 'Z').getTime();
+          return dateInRange(dateInTz(rts, selectedTz));
+        });
+        let batIdx = 0;
+        for (let i = 0; i < visibleBat.length; i++) {
+          const rts = new Date(visibleBat[i].datetime.replace('T', ' ') + 'Z').getTime();
+          if (rts <= ts) batIdx = i; else break;
+        }
+        batChart._cursorIndex = batIdx;
+        batChart.draw();
+      }
+
+      // --- Day filter logic ---
+      function applyDayFilter() {
+        recomputeDays();
+        buildDayFilter();
+        updatePlayIndices();
+
+        const pointsToggleOn = document.querySelector('[data-layer="points"]').classList.contains('active');
+        circles.forEach((c, i) => {
+          const show = activeDay === null || dateInRange(pointDate(M[i]));
+          if (show) {if (!pointGroup.hasLayer(c)) pointGroup.addLayer(c);}
+          else {pointGroup.removeLayer(c);}
+        });
+        if (pointsToggleOn) {if (!map.hasLayer(pointGroup)) map.addLayer(pointGroup);}
+        else {map.removeLayer(pointGroup);}
+
+        // Filter COG arrows by date
+        const dirToggleOn = document.querySelector('[data-layer="direction"]').classList.contains('active');
+        cogArrows.forEach(a => {
+          const show = activeDay === null || dateInRange(pointDate(M[a.idx]));
+          if (show) {if (!cogGroup.hasLayer(a.marker)) cogGroup.addLayer(a.marker);}
+          else {cogGroup.removeLayer(a.marker);}
+        });
+        if (dirToggleOn) {if (!map.hasLayer(cogGroup)) map.addLayer(cogGroup);}
+        else {map.removeLayer(cogGroup);}
+
+        function filterSegs(segs, group) {
+          segs.forEach(s => {
+            const show = activeDay === null || dateInRange(pointDate(M[s.idx])) || dateInRange(pointDate(M[s.idx - 1]));
+            s.layers.forEach(layer => {
+              if (show) {if (!group.hasLayer(layer)) group.addLayer(layer);}
+              else {group.removeLayer(layer);}
+            });
+          });
+        }
+        filterSegs(trailSegs, trailGroup);
+        filterSegs(speedSegs, speedGroup);
+        filterSegs(altSegs, altGroup);
+
+        const trailToggleOn = ['trail', 'speed', 'altitude'].some(l =>
+          document.querySelector(`[data-layer="${l}"]`).classList.contains('active')
+        );
+        bootGapLines.forEach(b => {
+          const show = activeDay === null || dateInRange(pointDate(M[b.idx])) || dateInRange(pointDate(M[b.idx - 1]));
+          if (show) {if (!bootGapGroup.hasLayer(b.line)) bootGapGroup.addLayer(b.line);}
+          else {bootGapGroup.removeLayer(b.line);}
+        });
+        if (trailToggleOn) {if (!map.hasLayer(bootGapGroup)) map.addLayer(bootGapGroup);}
+        else {map.removeLayer(bootGapGroup);}
+
+        const flightsOn = document.querySelector('[data-layer="flights"]').classList.contains('active');
+        if (!flightsOn) toggleFlightGaps(false);
+
+        const visiblePts = M.filter(p => activeDay === null || dateInRange(pointDate(p)));
+        if (visiblePts.length > 0) {
+          map.fitBounds(L.latLngBounds(visiblePts.map(p => [p.lat, p.lon])).pad(0.05));
+        }
+
+        const filteredM = activeDay === null ? chartM : chartM.filter(p => dateInRange(pointDate(p)));
+
+        altChart.data.labels = filteredM.map(p => (cumDist[chartOrigIndices[chartM.indexOf(p)]] / 1000).toFixed(1));
+        altChart.data.datasets[0].data = filteredM.map(p => p.alt);
+        altChart.update('none');
+
+        spdChart.data.labels = filteredM.map(p => p.t);
+        spdChart.data.datasets[0].data = filteredM.map(p => p.spd * 1.852);
+        spdChart.update('none');
+
+        satChart.data.labels = filteredM.map(p => p.t);
+        satChart.data.datasets[0].data = filteredM.map(p => p.sat);
+        satChart.update('none');
+
+        const filteredBat = activeDay === null ? batSample : batSample.filter(r => {
+          const ts = new Date(r.datetime.replace('T', ' ') + 'Z').getTime();
+          return dateInRange(dateInTz(ts, selectedTz));
+        });
+        batChart.data.labels = filteredBat.map(r => r.datetime.substring(5, 16).replace('T', ' '));
+        batChart.data.datasets[0].data = filteredBat.map(r => parseFloat(r.battery_pct) || 0);
+        batChart.update('none');
+      }
+    }
+
+    // --- File handling ---
+    function handleFile(file) {
+      if (!file || !file.name.toLowerCase().endsWith('.csv')) {alert('Please select a CSV file'); return;}
+      const reader = new FileReader();
+      reader.onload = e => {
+        const rows = parseCSV(e.target.result);
+        if (rows.length < 2) {alert('CSV appears empty or has wrong format'); return;}
+        if (!rows[0].datetime || !rows[0].fix) {alert('CSV missing expected columns (datetime, lat, lon, fix, etc.)'); return;}
+        render(rows);
+      };
+      reader.readAsText(file);
+    }
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+    dropZone.addEventListener('dragover', e => {e.preventDefault(); dropZone.classList.add('dragover');});
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]);});
+  </script>
+</body>
+
+</html>

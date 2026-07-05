@@ -1,0 +1,5 @@
+datetime,lat,lon,alt_m,speed_kts,cog,satellites,hdop,battery_pct,battery_v,charge_rate,rtc_bat_low,fix,boot
+2071-71-71T71:71:71,,,,,,,,,,,0,0,1373
+2042-13-132T00:00:03,,,,,,,,,,,0,0,1374
+2071-71-71T71:71:71,,,,,,,,,,,0,0,1375
+2071-71-71T71:71:71,,,,,,,,,,,0,0,1376
